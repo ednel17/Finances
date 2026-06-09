@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Bill Pay Calendar</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#ffffff;--bg2:#f5f6f8;--bg3:#eef0f4;
+    --text:#111827;--text2:#4b5563;--text3:#9ca3af;
+    --bdr:rgba(0,0,0,0.08);--bdr2:rgba(0,0,0,0.15);
+    --accent:#3b82f6;--accent-bg:#eff6ff;--accent-text:#1d4ed8;
+    --green:#16a34a;--green-bg:#f0fdf4;--green-text:#166534;
+    --red:#dc2626;--red-bg:#fef2f2;
+    --orange:#ea580c;--orange-bg:#fff7ed;
+    --r:10px;--r2:14px;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --safe-b:env(safe-area-inset-bottom,0px)
+  }
+  @media(prefers-color-scheme:dark){:root{
+    --bg:#111827;--bg2:#1f2937;--bg3:#0f172a;
+    --text:#f3f4f6;--text2:#9ca3af;--text3:#6b7280;
+    --bdr:rgba(255,255,255,0.08);--bdr2:rgba(255,255,255,0.15);
+    --accent:#60a5fa;--accent-bg:#1e3a5f;--accent-text:#93c5fd;
+    --green:#4ade80;--green-bg:#052e16;--green-text:#86efac;
+    --red:#f87171;--red-bg:#450a0a;
+    --orange:#fb923c;--orange-bg:#431407
+  }}
+  html{-webkit-tap-highlight-color:transparent}
+  body{font-family:var(--font);background:var(--bg3);color:var(--text);overflow-x:hidden;-webkit-text-size-adjust:100%}
+
+  .app{max-width:480px;margin:0 auto;padding-bottom:calc(80px + var(--safe-b))}
+
+  /* sticky top bar */
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    background:var(--bg);
+    border-bottom:1px solid var(--bdr);
+    padding:12px 16px;
+    display:flex;align-items:center;gap:8px
+  }
+  .topbar h1{font-size:17px;font-weight:700;flex:1;white-space:nowrap}
+  .topbar-btn{
+    width:40px;height:40px;border-radius:50%;border:none;
+    background:var(--bg2);color:var(--text);
+    font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;-webkit-appearance:none
+  }
+  .topbar-btn:active{opacity:0.6}
+
+  /* month nav */
+  .month-nav{
+    display:flex;align-items:center;padding:14px 16px 8px;gap:4px
+  }
+  .month-title{font-size:20px;font-weight:700;flex:1}
+  .mnav-btn{
+    width:44px;height:44px;border-radius:50%;border:none;
+    background:var(--bg);color:var(--text);font-size:22px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--bdr2);-webkit-appearance:none
+  }
+  .mnav-btn:active{background:var(--bg2)}
+
+  /* mini calendar */
+  .mini-cal{
+    background:var(--bg);margin:0 12px 10px;border-radius:var(--r2);
+    border:1px solid var(--bdr);overflow:hidden;padding:6px 8px 10px;
+    touch-action:pan-y
+  }
+  .wk-row{display:grid;grid-template-columns:repeat(7,1fr);gap:0}
+  .wk-label{
+    text-align:center;font-size:11px;font-weight:600;color:var(--text3);
+    padding:4px 0 6px;letter-spacing:0.3px
+  }
+  .mc-cell{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:6px 0;border-radius:8px;cursor:pointer;position:relative;
+    min-height:46px;gap:3px;-webkit-appearance:none;border:2px solid transparent
+  }
+  .mc-cell:active{background:var(--bg2)}
+  .mc-cell.other{opacity:0.3}
+  .mc-cell.today{border-color:var(--accent)}
+  .mc-cell.payday{background:var(--green-bg)}
+  .mc-cell.selected{background:var(--accent-bg);border-color:var(--accent)}
+  .mc-num{font-size:13px;font-weight:600;color:var(--text2);line-height:1}
+  .mc-cell.today .mc-num{color:var(--accent);font-weight:700}
+  .mc-cell.payday .mc-num{color:var(--green)}
+  .mc-dots{display:flex;gap:2px;min-height:6px}
+  .mc-dot{width:6px;height:6px;border-radius:50%}
+  .mc-pay-tag{
+    font-size:8px;font-weight:700;color:var(--green);
+    letter-spacing:0.5px;line-height:1
+  }
+
+  /* payday banner */
+  .pay-banner{
+    background:var(--green-bg);border:1px solid rgba(22,163,74,0.25);
+    border-radius:var(--r);margin:0 12px 10px;padding:12px 14px;
+    font-size:13px;color:var(--green-text);display:flex;align-items:center;gap:8px;
+    flex-wrap:wrap;line-height:1.5
+  }
+  .pay-badge{
+    background:var(--green);color:#fff;border-radius:6px;
+    padding:3px 10px;font-size:12px;font-weight:700
+  }
+
+  /* summary */
+  .summary{
+    display:grid;grid-template-columns:1fr 1fr;gap:8px;
+    margin:0 12px 10px
+  }
+  .scard{
+    background:var(--bg);border-radius:var(--r);border:1px solid var(--bdr);
+    padding:12px 14px
+  }
+  .scard-label{font-size:11px;color:var(--text3);font-weight:500;margin-bottom:2px}
+  .scard-val{font-size:22px;font-weight:700}
+  .scard-val.warn{color:var(--orange)}
+
+  /* agenda */
+  .agenda{margin:0 12px}
+  .day-group{margin-bottom:6px}
+  .day-header{
+    display:flex;align-items:center;gap:10px;padding:10px 4px 6px;
+    position:sticky;top:64px;z-index:10;background:var(--bg3)
+  }
+  .day-header .dh-num{
+    width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:16px;font-weight:700;background:var(--bg);
+    border:1px solid var(--bdr2);flex-shrink:0;color:var(--text)
+  }
+  .day-header.today .dh-num{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .day-header.payday .dh-num{background:var(--green);color:#fff;border-color:var(--green)}
+  .dh-info{flex:1;min-width:0}
+  .dh-title{font-size:14px;font-weight:600;color:var(--text)}
+  .dh-sub{font-size:12px;color:var(--text3)}
+  .dh-total{font-size:14px;font-weight:700;color:var(--text2)}
+
+  .bill-card{
+    background:var(--bg);border-radius:var(--r);border:1px solid var(--bdr);
+    padding:14px 16px;margin-bottom:6px;
+    display:flex;align-items:center;gap:12px;
+    cursor:pointer;transition:background 0.1s;
+    min-height:56px;-webkit-appearance:none
+  }
+  .bill-card:active{background:var(--bg2)}
+  .bc-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .bc-body{flex:1;min-width:0}
+  .bc-name{font-size:15px;font-weight:600;line-height:1.3}
+  .bc-note{font-size:12px;color:var(--text3);margin-top:1px}
+  .bc-right{text-align:right;flex-shrink:0}
+  .bc-amt{font-size:16px;font-weight:700}
+  .bc-cat{font-size:10px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:0.5px}
+
+  .add-day-btn{
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    background:var(--bg);border:1px dashed var(--bdr2);border-radius:var(--r);
+    padding:12px;margin-bottom:6px;font-size:13px;color:var(--text3);
+    cursor:pointer;width:100%;font-family:var(--font);-webkit-appearance:none
+  }
+  .add-day-btn:active{background:var(--bg2);color:var(--text2)}
+
+  .no-bills-msg{
+    text-align:center;padding:40px 20px;color:var(--text3);font-size:14px
+  }
+
+  /* floating add button */
+  .fab{
+    position:fixed;bottom:calc(20px + var(--safe-b));right:20px;z-index:100;
+    width:56px;height:56px;border-radius:50%;border:none;
+    background:var(--accent);color:#fff;font-size:28px;
+    cursor:pointer;box-shadow:0 4px 20px rgba(59,130,246,0.4);
+    display:flex;align-items:center;justify-content:center;
+    -webkit-appearance:none;transition:transform 0.15s
+  }
+  .fab:active{transform:scale(0.9)}
+
+  /* bottom sheet */
+  .sheet-overlay{
+    position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.4);
+    opacity:0;pointer-events:none;transition:opacity 0.25s
+  }
+  .sheet-overlay.open{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;bottom:0;left:0;right:0;z-index:201;
+    background:var(--bg);border-radius:20px 20px 0 0;
+    padding:0 20px calc(20px + var(--safe-b));
+    transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.32,0.72,0,1);
+    max-height:85vh;overflow-y:auto
+  }
+  .sheet-overlay.open .sheet{transform:translateY(0)}
+  .sheet-handle{
+    width:36px;height:4px;border-radius:2px;background:var(--bdr2);
+    margin:10px auto 16px
+  }
+  .sheet h2{font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px}
+  .field input,.field select{
+    width:100%;padding:14px 16px;border:1px solid var(--bdr2);
+    border-radius:var(--r);font-size:16px;background:var(--bg);
+    color:var(--text);font-family:var(--font);-webkit-appearance:none
+  }
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,0.15)}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .sheet-actions{display:flex;gap:10px;margin-top:18px;padding-bottom:8px}
+  .sbtn{
+    flex:1;padding:16px;border-radius:var(--r);border:none;
+    font-size:16px;font-weight:600;cursor:pointer;font-family:var(--font);
+    -webkit-appearance:none;text-align:center
+  }
+  .sbtn:active{opacity:0.7}
+  .sbtn-primary{background:var(--accent);color:#fff}
+  .sbtn-cancel{background:var(--bg2);color:var(--text)}
+  .sbtn-danger{background:var(--red-bg);color:var(--red);font-size:14px;padding:14px}
+
+  /* color map */
+  .cat-housing{color:#ea580c}
+  .cat-insurance{color:#2563eb}
+  .cat-utilities{color:#16a34a}
+  .cat-debt{color:#db2777}
+  .cat-subscriptions{color:#7c3aed}
+  .cat-other{color:#6b7280}
+
+  .dot-housing{background:#ea580c}
+  .dot-insurance{background:#2563eb}
+  .dot-utilities{background:#16a34a}
+  .dot-debt{background:#db2777}
+  .dot-subscriptions{background:#7c3aed}
+  .dot-other{background:#6b7280}
+
+  /* swipe hint animation */
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .day-group{animation:fadeIn 0.2s ease both}
+
+  /* desktop tweaks */
+  @media(min-width:600px){
+    .app{max-width:520px}
+    .mc-cell{min-height:52px}
+    .bill-card{padding:12px 16px}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- top bar -->
+  <div class="topbar">
+    <h1>Bill calendar</h1>
+    <button class="topbar-btn" onclick="showAllBills()" title="All bills">&#9776;</button>
+  </div>
+
+  <!-- month nav -->
+  <div class="month-nav" id="month-nav">
+    <button class="mnav-btn" onclick="go(-1)">&#8249;</button>
+    <div class="month-title" id="mtitle"></div>
+    <button class="mnav-btn" onclick="go(1)">&#8250;</button>
+  </div>
+
+  <!-- mini calendar -->
+  <div class="mini-cal" id="mini-cal"></div>
+
+  <!-- pay banner -->
+  <div class="pay-banner" id="pay-banner" style="display:none"></div>
+
+  <!-- summary cards -->
+  <div class="summary" id="summary"></div>
+
+  <!-- agenda list -->
+  <div class="agenda" id="agenda"></div>
+
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="openSheet()" title="Add bill">+</button>
+
+<!-- bottom sheet -->
+<div class="sheet-overlay" id="overlay" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="sheet-title">Add bill</h2>
+    <div class="field">
+      <label for="fn">Bill name</label>
+      <input type="text" id="fn" placeholder="e.g. Netflix" autocomplete="off">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="fa">Amount ($)</label>
+        <input type="number" id="fa" placeholder="0" min="0" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="fd">Day of month</label>
+        <input type="number" id="fd" placeholder="1" min="1" max="31" inputmode="numeric">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="fc">Category</label>
+        <select id="fc">
+          <option value="housing">Housing</option>
+          <option value="insurance">Insurance</option>
+          <option value="utilities">Utilities</option>
+          <option value="debt">Debt / credit</option>
+          <option value="subscriptions">Subscriptions</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fno">Note</label>
+        <input type="text" id="fno" placeholder="optional" autocomplete="off">
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="sbtn sbtn-cancel" onclick="closeSheet()">Cancel</button>
+      <button class="sbtn sbtn-primary" onclick="save()">Save</button>
+    </div>
+    <button class="sbtn sbtn-danger" id="del-btn" onclick="delFromSheet()" style="display:none;width:100%;margin-top:8px">Delete this bill</button>
+  </div>
+</div>
+
+<!-- all bills sheet -->
+<div class="sheet-overlay" id="all-overlay" onclick="if(event.target===this)closeAll()">
+  <div class="sheet" id="all-sheet" style="max-height:90vh">
+    <div class="sheet-handle"></div>
+    <h2>All recurring bills</h2>
+    <div id="all-list"></div>
+    <div style="padding:10px 0 8px">
+      <button class="sbtn sbtn-cancel" onclick="closeAll()" style="width:100%">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ANCHOR=new Date(2025,6,11),MS=864e5;
+const MO=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const CATS={housing:'#ea580c',insurance:'#2563eb',utilities:'#16a34a',debt:'#db2777',subscriptions:'#7c3aed',other:'#6b7280'};
+const CNAMES={housing:'Housing',insurance:'Insurance',utilities:'Utilities',debt:'Debt',subscriptions:'Subs',other:'Other'};
+
+let bills=[
+  {id:1,n:'Rent',d:1,a:1569,c:'housing',t:'Due ~1st-3rd'},
+  {id:2,n:'Comcast/Xfinity',d:1,a:76,c:'utilities',t:'Internet'},
+  {id:3,n:'Discover (x2)',d:1,a:200,c:'debt',t:'$100 each'},
+  {id:4,n:'USAA Insurance',d:3,a:278,c:'insurance',t:'Auto-pay'},
+  {id:5,n:'Credit One',d:3,a:80,c:'debt',t:'Variable'},
+  {id:6,n:'ADT Security',d:3,a:71,c:'utilities',t:'Auto-pay'},
+  {id:7,n:'City utilities',d:11,a:210,c:'utilities',t:'Tallahassee'},
+  {id:8,n:'ChatGPT (x2)',d:12,a:40,c:'subscriptions',t:'$19.99 x2'},
+  {id:9,n:'Xfinity Mobile',d:13,a:102,c:'utilities',t:'Phone'},
+  {id:10,n:'Discover e-pay',d:17,a:20,c:'debt',t:'Monthly min'},
+  {id:11,n:'VW Credit',d:18,a:191,c:'debt',t:'Car payment'},
+  {id:12,n:'Verizon',d:19,a:94,c:'utilities',t:'Phone'},
+  {id:13,n:'SiriusXM',d:19,a:14,c:'subscriptions',t:'Radio'},
+  {id:14,n:'Santander',d:21,a:368,c:'debt',t:'Car loan'},
+  {id:15,n:'Amazon Prime',d:27,a:15,c:'subscriptions',t:'Monthly'},
+];
+let nid=20,eid=null,selDay=null;
+const now=new Date();
+let cy=now.getFullYear(),cm=now.getMonth();
+
+function isPay(dt){return dt.getDay()===5&&Math.round((dt-ANCHOR)/MS)%14===0}
+function paydays(y,m){const r=[],nd=new Date(y,m+1,0).getDate();for(let i=1;i<=nd;i++){if(isPay(new Date(y,m,i)))r.push(i)}return r}
+function ord(n){return n===1?'st':n===2?'nd':n===3?'rd':'th'}
+function $(n){return'$'+Math.round(n).toLocaleString()}
+
+function render(){
+  const pd=paydays(cy,cm),dim=new Date(cy,cm+1,0).getDate(),fd=new Date(cy,cm,1).getDay();
+  const td=now.getDate(),tm=now.getMonth(),ty=now.getFullYear();
+  const isThisMonth=cm===tm&&cy===ty;
+
+  document.getElementById('mtitle').textContent=MO[cm]+' '+cy;
+
+  // mini cal
+  let mc='<div class="wk-row">'+DOW.map(d=>'<div class="wk-label">'+d+'</div>').join('')+'</div><div class="wk-row">';
+  const pdm=new Date(cy,cm,0).getDate();
+  for(let i=0;i<fd;i++) mc+=`<div class="mc-cell other"><span class="mc-num">${pdm-fd+i+1}</span></div>`;
+  for(let d=1;d<=dim;d++){
+    const ip=pd.includes(d),it=isThisMonth&&d===td,is=d===selDay;
+    const db=bills.filter(b=>b.d===d);
+    let cls='mc-cell';if(ip)cls+=' payday';if(it)cls+=' today';if(is)cls+=' selected';
+    mc+=`<div class="${cls}" onclick="pickDay(${d})"><span class="mc-num">${d}</span>`;
+    if(ip)mc+='<span class="mc-pay-tag">PAY</span>';
+    else if(db.length){mc+='<div class="mc-dots">';db.slice(0,3).forEach(b=>mc+=`<div class="mc-dot" style="background:${CATS[b.c]}"></div>`);mc+='</div>';}
+    else mc+='<div class="mc-dots"></div>';
+    mc+='</div>';
+    if((fd+d)%7===0&&d<dim) mc+='</div><div class="wk-row">';
+  }
+  const tot=fd+dim,rem=tot%7===0?0:7-tot%7;
+  for(let i=1;i<=rem;i++) mc+=`<div class="mc-cell other"><span class="mc-num">${i}</span></div>`;
+  mc+='</div>';
+  document.getElementById('mini-cal').innerHTML=mc;
+
+  // pay banner
+  const pb=document.getElementById('pay-banner');
+  if(pd.length){
+    pb.style.display='flex';
+    pb.innerHTML='&#128176; <strong>Paydays:</strong> '+pd.map(d=>`<span class="pay-badge">${MO[cm].slice(0,3)} ${d}</span>`).join('')+' <span style="font-size:12px;color:var(--text3)">(every other Fri)</span>';
+  } else pb.style.display='none';
+
+  // summary
+  const tot$=bills.reduce((s,b)=>s+b.a,0);
+  const early=bills.filter(b=>b.d<=5).reduce((s,b)=>s+b.a,0);
+  const mid=bills.filter(b=>b.d>5&&b.d<=15).reduce((s,b)=>s+b.a,0);
+  const late=bills.filter(b=>b.d>15).reduce((s,b)=>s+b.a,0);
+  document.getElementById('summary').innerHTML=`
+    <div class="scard"><div class="scard-label">Total / month</div><div class="scard-val">${$(tot$)}</div></div>
+    <div class="scard"><div class="scard-label">1st-5th (heaviest)</div><div class="scard-val warn">${$(early)}</div></div>
+    <div class="scard"><div class="scard-label">6th-15th</div><div class="scard-val">${$(mid)}</div></div>
+    <div class="scard"><div class="scard-label">16th-31st</div><div class="scard-val">${$(late)}</div></div>
+  `;
+
+  // agenda
+  const ag=document.getElementById('agenda');
+  if(selDay!==null){
+    renderDayDetail(selDay,pd,isThisMonth,td);return;
+  }
+  const daysWithStuff=new Set(bills.map(b=>b.d));
+  pd.forEach(d=>daysWithStuff.add(d));
+  const sorted=[...daysWithStuff].sort((a,b)=>a-b);
+  if(!sorted.length){ag.innerHTML='<div class="no-bills-msg">No bills yet. Tap + to add one.</div>';return;}
+
+  let html='';
+  sorted.forEach(day=>{
+    const ip=pd.includes(day),it=isThisMonth&&day===td;
+    const db=bills.filter(b=>b.d===day).sort((a,b)=>b.a-a.a);
+    const dayTotal=db.reduce((s,b)=>s+b.a,0);
+    const dow=DOW[new Date(cy,cm,day).getDay()];
+
+    html+=`<div class="day-group"><div class="day-header${it?' today':''}${ip?' payday':''}">`;
+    html+=`<div class="dh-num">${day}</div>`;
+    html+=`<div class="dh-info"><div class="dh-title">${dow}, ${MO[cm].slice(0,3)} ${day}${ip?' &#128176; Payday':''}</div>`;
+    if(db.length) html+=`<div class="dh-sub">${db.length} bill${db.length>1?'s':''}</div>`;
+    else if(ip) html+=`<div class="dh-sub">Paycheck day</div>`;
+    html+=`</div>`;
+    if(dayTotal) html+=`<div class="dh-total">${$(dayTotal)}</div>`;
+    html+=`</div>`;
+
+    db.forEach(b=>{
+      html+=`<div class="bill-card" onclick="openEdit(${b.id})">
+        <div class="bc-dot dot-${b.c}"></div>
+        <div class="bc-body">
+          <div class="bc-name">${b.n}</div>
+          ${b.t?`<div class="bc-note">${b.t}</div>`:''}
+        </div>
+        <div class="bc-right">
+          <div class="bc-amt cat-${b.c}">${$(b.a)}</div>
+          <div class="bc-cat">${CNAMES[b.c]||b.c}</div>
+        </div>
+      </div>`;
+    });
+    html+=`<div class="add-day-btn" onclick="openSheet(${day})">+ Add bill on the ${day}${ord(day)}</div>`;
+    html+=`</div>`;
+  });
+  ag.innerHTML=html;
+}
+
+function renderDayDetail(day,pd,isThisMonth,td){
+  const ag=document.getElementById('agenda');
+  const ip=pd.includes(day),it=isThisMonth&&day===td;
+  const db=bills.filter(b=>b.d===day).sort((a,b)=>b.a-a.a);
+  const dayTotal=db.reduce((s,b)=>s+b.a,0);
+  const dow=DOW[new Date(cy,cm,day).getDay()];
+
+  let html=`<div class="day-group"><div class="day-header${it?' today':''}${ip?' payday':''}">`;
+  html+=`<div class="dh-num">${day}</div>`;
+  html+=`<div class="dh-info"><div class="dh-title">${dow}, ${MO[cm]} ${day}${ip?' &#128176; Payday':''}</div>`;
+  html+=`<div class="dh-sub">${db.length} bill${db.length!==1?'s':''} · tap calendar to show all</div>`;
+  html+=`</div>`;
+  if(dayTotal) html+=`<div class="dh-total">${$(dayTotal)}</div>`;
+  html+=`</div>`;
+
+  if(ip&&!db.length) html+=`<div class="bill-card" style="border-color:rgba(22,163,74,0.3)"><div class="bc-dot" style="background:var(--green)"></div><div class="bc-body"><div class="bc-name" style="color:var(--green)">Payday</div><div class="bc-note">Bi-weekly payroll (~$1,500-$1,900)</div></div></div>`;
+
+  db.forEach(b=>{
+    html+=`<div class="bill-card" onclick="openEdit(${b.id})">
+      <div class="bc-dot dot-${b.c}"></div>
+      <div class="bc-body"><div class="bc-name">${b.n}</div>${b.t?`<div class="bc-note">${b.t}</div>`:''}</div>
+      <div class="bc-right"><div class="bc-amt cat-${b.c}">${$(b.a)}</div><div class="bc-cat">${CNAMES[b.c]||b.c}</div></div>
+    </div>`;
+  });
+  html+=`<div class="add-day-btn" onclick="openSheet(${day})">+ Add bill on the ${day}${ord(day)}</div></div>`;
+  ag.innerHTML=html;
+}
+
+function pickDay(d){selDay=selDay===d?null:d;render()}
+function go(dir){cm+=dir;if(cm>11){cm=0;cy++}if(cm<0){cm=11;cy--}selDay=null;render()}
+
+// swipe
+let tx=0;
+document.getElementById('mini-cal').addEventListener('touchstart',e=>{tx=e.touches[0].clientX},{passive:true});
+document.getElementById('mini-cal').addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-tx;
+  if(Math.abs(dx)>60){go(dx<0?1:-1)}
+},{passive:true});
+
+// sheet
+function openSheet(day){
+  eid=null;
+  document.getElementById('sheet-title').textContent='Add bill';
+  document.getElementById('del-btn').style.display='none';
+  document.getElementById('fn').value='';
+  document.getElementById('fa').value='';
+  document.getElementById('fd').value=day||'';
+  document.getElementById('fc').value='utilities';
+  document.getElementById('fno').value='';
+  document.getElementById('overlay').classList.add('open');
+}
+function openEdit(id){
+  const b=bills.find(x=>x.id===id);if(!b)return;
+  eid=id;
+  document.getElementById('sheet-title').textContent='Edit bill';
+  document.getElementById('del-btn').style.display='block';
+  document.getElementById('fn').value=b.n;
+  document.getElementById('fa').value=b.a;
+  document.getElementById('fd').value=b.d;
+  document.getElementById('fc').value=b.c;
+  document.getElementById('fno').value=b.t||'';
+  document.getElementById('overlay').classList.add('open');
+}
+function closeSheet(){eid=null;document.getElementById('overlay').classList.remove('open')}
+function save(){
+  const n=document.getElementById('fn').value.trim();if(!n){document.getElementById('fn').focus();return}
+  const a=Math.round(parseFloat(document.getElementById('fa').value)||0);
+  const d=Math.min(31,Math.max(1,parseInt(document.getElementById('fd').value)||1));
+  const c=document.getElementById('fc').value;
+  const t=document.getElementById('fno').value.trim();
+  if(eid!==null){const b=bills.find(x=>x.id===eid);if(b){b.n=n;b.a=a;b.d=d;b.c=c;b.t=t}}
+  else bills.push({id:nid++,n,d,a,c,t});
+  closeSheet();render();
+}
+function delFromSheet(){
+  if(eid!==null){bills=bills.filter(x=>x.id!==eid);closeSheet();render()}
+}
+
+// all bills
+function showAllBills(){
+  const sorted=[...bills].sort((a,b)=>a.d-b.d);
+  let html='';
+  sorted.forEach(b=>{
+    html+=`<div class="bill-card" onclick="closeAll();openEdit(${b.id})">
+      <div class="bc-dot dot-${b.c}"></div>
+      <div class="bc-body"><div class="bc-name">${b.n}</div><div class="bc-note">Day ${b.d} · ${b.t||''}</div></div>
+      <div class="bc-right"><div class="bc-amt cat-${b.c}">${$(b.a)}</div><div class="bc-cat">${CNAMES[b.c]}</div></div>
+    </div>`;
+  });
+  const total=bills.reduce((s,b)=>s+b.a,0);
+  html+=`<div style="text-align:center;padding:12px;font-size:14px;font-weight:700;color:var(--text2)">Monthly total: ${$(total)}</div>`;
+  document.getElementById('all-list').innerHTML=html;
+  document.getElementById('all-overlay').classList.add('open');
+}
+function closeAll(){document.getElementById('all-overlay').classList.remove('open')}
+
+render();
+</script>
+</body>
+</html>
